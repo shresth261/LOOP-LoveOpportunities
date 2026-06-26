@@ -2,16 +2,28 @@ import { Link } from "@tanstack/react-router";
 import { Bookmark, BookmarkCheck, MapPin, Users } from "lucide-react";
 import { formatDistanceToNowStrict, format, differenceInDays } from "date-fns";
 import { categoryColor, type Opportunity } from "@/lib/opportunities";
-import { useSaved, useProfile, matchScore } from "@/lib/local-store";
+import { useSaved, useProfile, matchScore, useInterested } from "@/lib/local-store";
 import { MatchPie } from "./MatchPie";
+import { CountdownTimer } from "./CountdownTimer";
 
 export function OpportunityCard({ opp, index = 0 }: { opp: Opportunity; index?: number }) {
-  const { isSaved, toggle } = useSaved();
+  const { saved, toggle: toggleSaved } = useSaved();
   const { profile } = useProfile();
-  const saved = isSaved(opp.id);
+  
+  const isSaved = saved.includes(opp.id);
+  
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSaved(opp.id);
+  };
+
   const score = matchScore(profile, opp.tags);
-  const daysLeft = differenceInDays(new Date(opp.deadline), new Date());
-  const urgent = daysLeft <= 7;
+  const now = new Date();
+  const startsIn = opp.application_start_date ? differenceInDays(new Date(opp.application_start_date), now) : -1;
+  const daysLeft = differenceInDays(new Date(opp.deadline), now);
+  const urgent = startsIn <= 0 && daysLeft <= 7;
+  const isFuture = startsIn > 0;
 
   return (
     <article
@@ -34,6 +46,11 @@ export function OpportunityCard({ opp, index = 0 }: { opp: Opportunity; index?: 
                 ★ Featured
               </span>
             )}
+            {opp.verified && (
+              <span className="px-2 py-0.5 bg-blue-500 text-white font-mono text-[10px] font-bold uppercase rounded-sm">
+                ✓ Verified
+              </span>
+            )}
           </div>
 
           <Link to="/opportunity/$id" params={{ id: opp.id }} className="block group">
@@ -53,6 +70,11 @@ export function OpportunityCard({ opp, index = 0 }: { opp: Opportunity; index?: 
               <MapPin className="size-3.5" />
               {opp.location}
             </span>
+            {opp.work_mode && (
+              <span className="inline-flex items-center gap-1.5 font-mono uppercase text-[10px] border border-foreground/20 px-2 py-0.5 rounded-full">
+                {opp.work_mode}
+              </span>
+            )}
             {opp.participants ? (
               <span className="inline-flex items-center gap-1.5">
                 <Users className="size-3.5" />
@@ -75,16 +97,12 @@ export function OpportunityCard({ opp, index = 0 }: { opp: Opportunity; index?: 
         <div className="flex md:flex-col md:items-end justify-between md:w-44 gap-3 md:border-l-2 md:border-dashed md:border-foreground/20 md:pl-6">
           <div className="text-left md:text-right">
             <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-              {urgent ? "Closing" : "Deadline"}
+              {isFuture ? "Opens in" : urgent ? "Closing" : "Deadline"}
             </div>
             <div
-              className={`font-display text-3xl uppercase leading-none ${urgent ? "text-primary" : ""}`}
+              className={`font-display text-xl md:text-2xl uppercase leading-none mt-1 ${urgent ? "text-primary" : ""}`}
             >
-              {daysLeft <= 0
-                ? "TODAY"
-                : daysLeft <= 14
-                  ? `${daysLeft}D`
-                  : format(new Date(opp.deadline), "MMM dd").toUpperCase()}
+              <CountdownTimer deadline={opp.deadline} />
             </div>
             {opp.prize_amount && (
               <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest mt-2">
@@ -105,11 +123,20 @@ export function OpportunityCard({ opp, index = 0 }: { opp: Opportunity; index?: 
               View
             </Link>
             <button
-              onClick={() => toggle(opp.id)}
-              aria-label={saved ? "Unsave" : "Save"}
-              className={`shrink-0 py-2.5 px-3 rounded-lg border-2 border-foreground font-mono text-[11px] font-bold uppercase transition-colors ${saved ? "bg-secondary text-secondary-foreground" : "bg-card hover:bg-accent"}`}
+              type="button"
+              onClick={handleToggle}
+              aria-label={isSaved ? "Unsave" : "Save"}
+              className={`flex items-center justify-center gap-2 shrink-0 py-2.5 px-4 rounded-lg border-2 border-foreground font-mono text-[11px] font-bold uppercase transition-colors ${isSaved ? "bg-secondary text-secondary-foreground" : "bg-card hover:bg-accent"}`}
             >
-              {saved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
+              {isSaved ? (
+                <>
+                  <BookmarkCheck className="size-4" /> Saved
+                </>
+              ) : (
+                <>
+                  <Bookmark className="size-4" /> Save
+                </>
+              )}
             </button>
           </div>
         </div>

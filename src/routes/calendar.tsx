@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
@@ -14,8 +14,8 @@ import {
   isSameDay,
   differenceInDays,
 } from "date-fns";
-import { opportunitiesQuery, categoryColor } from "@/lib/opportunities";
-import { useInterested, useSaved } from "@/lib/local-store";
+import { opportunitiesQuery, categoryColor, opportunitiesByIdsQuery } from "@/lib/opportunities";
+import { useInterested, useSaved, useProfile } from "@/lib/local-store";
 import { ChevronLeft, ChevronRight, Calendar as CalIcon } from "lucide-react";
 
 export const Route = createFileRoute("/calendar")({
@@ -25,28 +25,59 @@ export const Route = createFileRoute("/calendar")({
       { name: "description", content: "All deadlines on one page." },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(opportunitiesQuery()),
+  beforeLoad: ({ context }) => {
+    if (!context.user) {
+      throw redirect({ to: "/login" });
+    }
+  },
+  loader: () => {}, // We don't prefetch because we need user profile from hooks
   component: CalendarPage,
   errorComponent: () => <div className="p-10 font-mono">Failed to load.</div>,
   notFoundComponent: () => <div className="p-10 font-mono">Not found.</div>,
 });
 
 function CalendarPage() {
-  const { data: opps } = useSuspenseQuery(opportunitiesQuery());
+  const { profile } = useProfile();
+  const profileTokens = useMemo(
+    () => Array.from(new Set([...(profile.skills || []), ...(profile.interests || [])])),
+    [profile]
+  );
+  
+  const { data: opps } = useSuspenseQuery(
+    opportunitiesQuery({ profileTokens, limit: 500 })
+  );
+
   const { interested } = useInterested();
   const { saved } = useSaved();
+  
+  const allTrackedIds = useMemo(
+    () => Array.from(new Set([...saved, ...interested])), 
+    [saved, interested]
+  );
+  const { data: trackedOpps } = useSuspenseQuery(opportunitiesByIdsQuery(allTrackedIds));
+
   const [cursor, setCursor] = useState(new Date());
   const [selected, setSelected] = useState<Date | null>(new Date());
   const [filter, setFilter] = useState<"all" | "tracked">("all");
 
   const tracked = useMemo(() => new Set([...interested, ...saved]), [interested, saved]);
+  
+  const combinedOpps = useMemo(() => {
+    const map = new Map<string, typeof opps[number]>();
+    opps.forEach(o => map.set(o.id, o));
+    if (trackedOpps) {
+      trackedOpps.forEach(o => map.set(o.id, o));
+    }
+    return Array.from(map.values());
+  }, [opps, trackedOpps]);
+
   const visible = useMemo(
-    () => (filter === "tracked" ? opps.filter((o) => tracked.has(o.id)) : opps),
-    [opps, filter, tracked],
+    () => (filter === "tracked" ? combinedOpps.filter((o) => tracked.has(o.id)) : combinedOpps),
+    [combinedOpps, filter, tracked],
   );
 
   const byDay = useMemo(() => {
-    const m = new Map<string, typeof opps>();
+    const m = new Map<string, typeof combinedOpps>();
     visible.forEach((o) => {
       const key = format(new Date(o.deadline), "yyyy-MM-dd");
       const arr = m.get(key) ?? [];
@@ -134,12 +165,15 @@ function CalendarPage() {
               const inMonth = isSameMonth(d, cursor);
               const isToday = isSameDay(d, new Date());
               const isSel = selected && isSameDay(d, selected);
+              const hasItems = list.length > 0;
+              const isTrackedHighlight = filter === "tracked" && hasItems && !isSel;
               return (
                 <button
                   key={key}
                   onClick={() => setSelected(d)}
                   className={`relative aspect-square p-1.5 rounded-xl border-2 flex flex-col items-start text-left transition-all
                     ${isSel ? "border-foreground bg-foreground text-background" : "border-transparent hover:border-foreground/30"}
+                    ${isTrackedHighlight ? "bg-primary/10 border-primary/20" : ""}
                     ${!inMonth ? "opacity-30" : ""}`}
                 >
                   <span className={`font-mono text-xs ${isToday ? "font-bold text-primary" : ""}`}>

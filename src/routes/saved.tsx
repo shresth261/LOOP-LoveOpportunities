@@ -1,19 +1,31 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { opportunitiesQuery } from "@/lib/opportunities";
+import { opportunitiesByIdsQuery } from "@/lib/opportunities";
 import { OpportunityCard } from "@/components/OpportunityCard";
-import { useSaved } from "@/lib/local-store";
+import { useSaved, useInterested } from "@/lib/local-store";
 
 export const Route = createFileRoute("/saved")({
   head: () => ({ meta: [{ title: "Saved — LOOP" }] }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(opportunitiesQuery()),
+  beforeLoad: ({ context }) => {
+    if (!context.user) {
+      throw redirect({ to: "/login" });
+    }
+  },
   component: SavedPage,
 });
 
 function SavedPage() {
-  const { data: all } = useSuspenseQuery(opportunitiesQuery());
   const { saved } = useSaved();
-  const list = all.filter((o) => saved.includes(o.id));
+  
+  const allTrackedIds = Array.from(new Set([...saved]));
+  
+  const { data: all } = useSuspenseQuery(opportunitiesByIdsQuery(allTrackedIds));
+  
+  const list = all 
+    ? all
+        .filter((a) => new Date(a.deadline).getTime() >= Date.now())
+        .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()) 
+    : [];
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">

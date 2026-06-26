@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useProfile, analyseResume, SKILL_DICTIONARY } from "@/lib/local-store";
 import { Sparkles, FileText, PenLine, ArrowRight, Check } from "lucide-react";
+import { authenticate } from "@/lib/auth";
 
 const FIELDS = [
   "Software Engineering",
@@ -18,6 +19,7 @@ export function OnboardingModal() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [mode, setMode] = useState<"resume" | "manual" | null>(null);
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [resume, setResume] = useState("");
   const [field, setField] = useState("Software Engineering");
   const [skills, setSkills] = useState<string[]>([]);
@@ -91,19 +93,42 @@ export function OnboardingModal() {
                   competitions just for you.
                 </p>
               </div>
-              <input
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. ada_lovelace"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && name.trim()) setStep(2);
-                }}
-                className="w-full bg-transparent border-b-4 border-foreground px-1 py-3 font-display text-3xl uppercase tracking-tight focus:outline-none focus:border-primary"
-              />
+              <div className="flex flex-col gap-4">
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. ada_lovelace"
+                  className="w-full bg-transparent border-b-4 border-foreground px-1 py-3 font-display text-3xl uppercase tracking-tight focus:outline-none focus:border-primary"
+                />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="PASSWORD"
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter" && name.trim() && password.trim()) {
+                      try {
+                        await authenticate({ data: { name: name.trim(), password } });
+                        setStep(2);
+                      } catch (err) {
+                        alert("Authentication failed. Please check your password.");
+                      }
+                    }
+                  }}
+                  className="w-full bg-transparent border-b-4 border-foreground px-1 py-3 font-display text-3xl uppercase tracking-tight focus:outline-none focus:border-primary"
+                />
+              </div>
               <button
-                disabled={!name.trim()}
-                onClick={() => setStep(2)}
+                disabled={!name.trim() || !password.trim()}
+                onClick={async () => {
+                  try {
+                    await authenticate({ data: { name: name.trim(), password } });
+                    setStep(2);
+                  } catch (err) {
+                    alert("Authentication failed. Please check your password.");
+                  }
+                }}
                 className="inline-flex items-center gap-2 bg-foreground text-background px-6 py-3.5 rounded-xl font-mono text-xs font-bold uppercase disabled:opacity-30 hover:bg-primary transition-colors"
               >
                 Continue <ArrowRight className="size-4" />

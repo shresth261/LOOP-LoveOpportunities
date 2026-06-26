@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { Category } from "@/lib/opportunities";
+import { DashboardSearch } from "./DashboardSearch";
 
 const CATEGORIES: { id: Category | "all"; label: string; color: string; rotate: string }[] = [
   { id: "all", label: "#FOR_YOU", color: "bg-card", rotate: "-rotate-2" },
@@ -35,14 +35,7 @@ interface Props {
 export function FilterRail({ category, onCategoryChange, query, onQueryChange }: Props) {
   return (
     <div className="space-y-5">
-      <div className="relative">
-        <input
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Search opportunities…"
-          className="w-full bg-card border-2 border-foreground rounded-2xl px-4 py-3 font-mono text-sm placeholder:text-muted-foreground focus:outline-none focus:shadow-stamp focus:-translate-x-0.5 focus:-translate-y-0.5 transition-all"
-        />
-      </div>
+      <DashboardSearch query={query} onQueryChange={onQueryChange} />
       <div className="flex flex-wrap gap-2">
         {CATEGORIES.map((c) => {
           const active = category === c.id;
@@ -68,7 +61,8 @@ export function FilterRail({ category, onCategoryChange, query, onQueryChange }:
 }
 
 export function FilterRailControlled() {
-  const [cat, setCat] = useState<Category | "all">("all");
-  const [q, setQ] = useState("");
+  const React = require("react");
+  const [cat, setCat] = React.useState<Category | "all">("all");
+  const [q, setQ] = React.useState("");
   return <FilterRail category={cat} onCategoryChange={setCat} query={q} onQueryChange={setQ} />;
 }

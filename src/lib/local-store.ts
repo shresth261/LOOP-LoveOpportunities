@@ -1,118 +1,161 @@
-import { useEffect, useState, useCallback } from "react";
-
-const SAVED_KEY = "loop.saved";
-const PROFILE_KEY = "loop.profile";
-const INTERESTED_KEY = "loop.interested";
-const PASSED_KEY = "loop.passed";
-const APPLIED_KEY = "loop.applied";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  getUserData, 
+  updateProfile as apiUpdateProfile, 
+  toggleSaved as apiToggleSaved, 
+  toggleInterested as apiToggleInterested, 
+  addInterested as apiAddInterested, 
+  addPassed as apiAddPassed, 
+  toggleApplied as apiToggleApplied 
+} from './user-data';
 
 export interface Profile {
   name: string;
   onboarded: boolean;
-  field: string; // primary field of interest
-  interests: string[]; // tags
-  skills: string[]; // extracted/typed skills
+  field: string;
+  interests: string[];
+  skills: string[];
   categories: string[];
+  avatar?: string;
+  goal?: string;
+  future_you?: string;
+  preferred_locations?: string[];
+  portfolio_url?: string;
+  github_url?: string;
+  leetcode_url?: string;
+  email?: string;
 }
 
-const DEFAULT_PROFILE: Profile = {
-  name: "",
+export const DEFAULT_PROFILE: Profile = {
+  name: '',
   onboarded: false,
-  field: "",
+  field: '',
   interests: [],
   skills: [],
   categories: [],
+  preferred_locations: [],
 };
 
-function read<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+export function useUserData() {
+  return useQuery({
+    queryKey: ['userData'],
+    queryFn: async () => {
+      const data = await getUserData();
+      return data || {
+        profile: DEFAULT_PROFILE,
+        saved: [],
+        interested: [],
+        passed: [],
+        applied: []
+      };
+    }
+  });
 }
 
-function useStringSet(key: string, eventName: string) {
-  const [list, setList] = useState<string[]>([]);
-  useEffect(() => {
-    setList(read<string[]>(key, []));
-  }, [key]);
+function useListToggle(listKey: 'saved' | 'interested' | 'passed' | 'applied', apiFn: any) {
+  const { data } = useUserData();
+  const queryClient = useQueryClient();
+  const list = data?.[listKey] || [];
 
-  const toggle = useCallback(
-    (id: string) => {
-      setList((prev) => {
-        const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-        localStorage.setItem(key, JSON.stringify(next));
-        window.dispatchEvent(new Event(eventName));
-        return next;
+  const mutation = useMutation({
+    mutationFn: (data: any) => apiFn({ data }),
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['userData'] });
+      const previous = queryClient.getQueryData(['userData']);
+      queryClient.setQueryData(['userData'], (old: any) => {
+        if (!old) return old;
+        const current = old[listKey] || [];
+        const next = current.includes(id) ? current.filter((x: string) => x !== id) : [...current, id];
+        return { ...old, [listKey]: next };
       });
+      return { previous };
     },
-    [key, eventName],
-  );
+    onError: (err, id, context) => {
+      queryClient.setQueryData(['userData'], context?.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['userData'] });
+    }
+  });
 
-  const add = useCallback(
-    (id: string) => {
-      setList((prev) => {
-        if (prev.includes(id)) return prev;
-        const next = [...prev, id];
-        localStorage.setItem(key, JSON.stringify(next));
-        window.dispatchEvent(new Event(eventName));
-        return next;
+  return { list, toggle: (id: string) => mutation.mutate(id) };
+}
+
+function useListAdd(listKey: 'saved' | 'interested' | 'passed' | 'applied', apiFn: any) {
+  const { data } = useUserData();
+  const queryClient = useQueryClient();
+  const list = data?.[listKey] || [];
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => apiFn({ data }),
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['userData'] });
+      const previous = queryClient.getQueryData(['userData']);
+      queryClient.setQueryData(['userData'], (old: any) => {
+        if (!old) return old;
+        const current = old[listKey] || [];
+        if (current.includes(id)) return old;
+        return { ...old, [listKey]: [...current, id] };
       });
+      return { previous };
     },
-    [key, eventName],
-  );
+    onError: (err, id, context) => {
+      queryClient.setQueryData(['userData'], context?.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['userData'] });
+    }
+  });
 
-  useEffect(() => {
-    const h = () => setList(read<string[]>(key, []));
-    window.addEventListener(eventName, h);
-    return () => window.removeEventListener(eventName, h);
-  }, [key, eventName]);
-
-  return { list, has: (id: string) => list.includes(id), toggle, add };
+  return { list, add: (id: string) => mutation.mutate(id) };
 }
 
 export function useSaved() {
-  const { list, has, toggle } = useStringSet(SAVED_KEY, "loop:saved");
-  return { saved: list, isSaved: has, toggle };
+  const { list, toggle } = useListToggle('saved', apiToggleSaved);
+  return { saved: list, isSaved: (id: string) => list.includes(id), toggle };
 }
 
 export function useInterested() {
-  const { list, has, toggle, add } = useStringSet(INTERESTED_KEY, "loop:interested");
-  return { interested: list, isInterested: has, toggle, add };
+  const { list, toggle } = useListToggle('interested', apiToggleInterested);
+  const { add } = useListAdd('interested', apiAddInterested);
+  return { interested: list, isInterested: (id: string) => list.includes(id), toggle, add };
 }
 
 export function usePassed() {
-  const { list, has, add } = useStringSet(PASSED_KEY, "loop:passed");
-  return { passed: list, isPassed: has, add };
+  const { list, add } = useListAdd('passed', apiAddPassed);
+  return { passed: list, isPassed: (id: string) => list.includes(id), add };
 }
 
 export function useApplied() {
-  const { list, has, toggle } = useStringSet(APPLIED_KEY, "loop:applied");
-  return { applied: list, isApplied: has, toggle };
+  const { list, toggle } = useListToggle('applied', apiToggleApplied);
+  return { applied: list, isApplied: (id: string) => list.includes(id), toggle };
 }
 
 export function useProfile() {
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
-  useEffect(() => {
-    setProfile(read<Profile>(PROFILE_KEY, DEFAULT_PROFILE));
-    const h = () => setProfile(read<Profile>(PROFILE_KEY, DEFAULT_PROFILE));
-    window.addEventListener("loop:profile", h);
-    return () => window.removeEventListener("loop:profile", h);
-  }, []);
+  const { data } = useUserData();
+  const queryClient = useQueryClient();
+  const profile = data?.profile || DEFAULT_PROFILE;
 
-  const update = useCallback((next: Partial<Profile>) => {
-    setProfile((prev) => {
-      const merged = { ...prev, ...next };
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(merged));
-      window.dispatchEvent(new Event("loop:profile"));
-      return merged;
-    });
-  }, []);
+  const mutation = useMutation({
+    mutationFn: (data: any) => apiUpdateProfile({ data }),
+    onMutate: async (updates: Partial<Profile>) => {
+      await queryClient.cancelQueries({ queryKey: ['userData'] });
+      const previous = queryClient.getQueryData(['userData']);
+      queryClient.setQueryData(['userData'], (old: any) => {
+        if (!old) return old;
+        return { ...old, profile: { ...old.profile, ...updates } };
+      });
+      return { previous };
+    },
+    onError: (err, updates, context) => {
+      queryClient.setQueryData(['userData'], context?.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['userData'] });
+    }
+  });
 
-  return { profile, update };
+  return { profile, update: (updates: Partial<Profile>) => mutation.mutate(updates) };
 }
 
 // ===== Resume analyser =====
@@ -261,9 +304,9 @@ export function analyseResume(text: string): { skills: string[]; field: string }
 export function matchScore(profile: Profile, oppTags: string[]): number {
   if (!oppTags.length) return 0;
   const set = new Set([
-    ...profile.skills.map((s) => s.toLowerCase()),
-    ...profile.interests.map((s) => s.toLowerCase()),
-    profile.field.toLowerCase(),
+    ...(profile.skills || []).map((s) => s.toLowerCase()),
+    ...(profile.interests || []).map((s) => s.toLowerCase()),
+    (profile.field || "").toLowerCase(),
   ]);
   const hits = oppTags.filter((t) => {
     const lower = t.toLowerCase();

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { opportunitiesQuery } from "@/lib/opportunities";
+import { opportunitiesByIdsQuery } from "@/lib/opportunities";
 import { useInterested, useSaved } from "@/lib/local-store";
 import { Clock, X } from "lucide-react";
+import { useNow } from "@/hooks/use-now";
 
 function fmt(ms: number) {
   if (ms <= 0) return "00:00:00:00";
@@ -17,24 +18,20 @@ function fmt(ms: number) {
 }
 
 export function DeadlinePopup() {
-  const { data: opps = [] } = useQuery(opportunitiesQuery());
-  const { interested } = useInterested();
   const { saved } = useSaved();
-  const [now, setNow] = useState<number>(() => Date.now());
+  const trackedIds = useMemo(() => Array.from(new Set([...saved])), [saved]);
+  
+  const { data: opps = [] } = useQuery(opportunitiesByIdsQuery(trackedIds));
+  
+  const now = useNow(1000);
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
   const next = useMemo(() => {
-    const tracked = new Set([...interested, ...saved]);
     const list = opps
-      .filter((o) => tracked.has(o.id) && new Date(o.deadline).getTime() > now)
+      .filter((o) => new Date(o.deadline).getTime() > now)
       .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
     return list[0];
-  }, [opps, interested, saved, now]);
+  }, [opps, now]);
 
   if (!next || dismissed) return null;
 

@@ -15,6 +15,7 @@ import { SiteHeader } from "../components/SiteHeader";
 import { DeadlineTicker } from "../components/DeadlineTicker";
 import { OnboardingModal } from "../components/OnboardingModal";
 import { DeadlinePopup } from "../components/DeadlinePopup";
+import { getCurrentUser } from "../lib/auth";
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
@@ -52,7 +53,16 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export interface RouterContext {
+  queryClient: QueryClient;
+  user: { userId: string; name: string } | null;
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: async () => {
+    const user = await getCurrentUser();
+    return { user };
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -102,7 +112,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  const { queryClient, user } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -110,8 +120,7 @@ function RootComponent() {
         <DeadlineTicker />
         <SiteHeader />
         <Outlet />
-        <OnboardingModal />
-        <DeadlinePopup />
+        {user && <DeadlinePopup />}
         <footer className="border-t-2 border-foreground/10 mt-24 py-10">
           <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-6">
             <div>

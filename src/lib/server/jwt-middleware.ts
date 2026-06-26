@@ -1,7 +1,7 @@
 import { createMiddleware } from "@tanstack/react-start";
 // @ts-ignore
 import { getCookie } from "vinxi/http";
-import jwt from "jsonwebtoken";
+import * as jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "default_development_secret_do_not_use_in_prod";
 

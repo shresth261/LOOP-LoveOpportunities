@@ -56,7 +56,10 @@ function DetailPage() {
   );
   const matched = o.tags.filter((t) => profileTokens.has(t.toLowerCase()));
   const missing = o.tags.filter((t) => !profileTokens.has(t.toLowerCase()));
-  const daysLeft = differenceInDays(new Date(o.deadline), new Date());
+  const now = new Date();
+  const startsIn = o.application_start_date ? differenceInDays(new Date(o.application_start_date), now) : -1;
+  const daysLeft = differenceInDays(new Date(o.deadline), now);
+  const isFuture = startsIn > 0;
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-10">
@@ -72,6 +75,11 @@ function DetailPage() {
           className={`px-8 py-3 ${categoryColor[o.category]} font-mono text-[11px] font-bold uppercase tracking-wider`}
         >
           {o.category} · posted {formatDistanceToNowStrict(new Date(o.posted_at))} ago
+          {o.verified && (
+            <span className="ml-3 px-2 py-0.5 bg-blue-500 text-white font-mono text-[10px] font-bold uppercase rounded-sm">
+              ✓ Verified
+            </span>
+          )}
         </div>
 
         <div className="p-8 md:p-10">
@@ -98,11 +106,16 @@ function DetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
             <Stat
               icon={<Calendar className="size-4" />}
-              label="Deadline"
-              value={daysLeft <= 0 ? "Today" : `${daysLeft} days`}
-              sub={format(new Date(o.deadline), "MMM dd, yyyy")}
+              label={isFuture ? "Opens In" : "Deadline"}
+              value={isFuture ? `${startsIn} days` : daysLeft <= 0 ? "Today" : `${daysLeft} days`}
+              sub={isFuture && o.application_start_date ? format(new Date(o.application_start_date), "MMM dd, yyyy") : format(new Date(o.deadline), "MMM dd, yyyy")}
             />
-            <Stat icon={<MapPin className="size-4" />} label="Location" value={o.location} />
+            <Stat 
+              icon={<MapPin className="size-4" />} 
+              label="Location" 
+              value={o.location}
+              sub={o.work_mode?.toUpperCase()}
+            />
             {o.prize_amount && (
               <Stat icon={<Trophy className="size-4" />} label="Reward" value={o.prize_amount} />
             )}
@@ -166,6 +179,9 @@ function DetailPage() {
                 href={o.apply_url}
                 target="_blank"
                 rel="noreferrer noopener"
+                onClick={() => {
+                  if (!applied) toggleApplied(o.id);
+                }}
                 className="inline-flex items-center gap-2 bg-foreground text-background px-6 py-3.5 rounded-xl font-mono text-xs font-bold uppercase hover:bg-primary transition-colors"
               >
                 Apply now <ExternalLink className="size-3.5" />
