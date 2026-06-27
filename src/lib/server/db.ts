@@ -5,16 +5,41 @@ import type { Profile } from "../local-store";
 const getUri = () => process.env.MONGODB_URI || "mongodb://localhost:27017";
 const getDbName = () => process.env.DATABASE_NAME || "leap_lounge";
 
-let client: MongoClient | null = null;
+let clientPromise: Promise<MongoClient> | null = null;
+
+declare global {
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
 
 export async function getDb() {
-  if (!client) {
-    client = new MongoClient(getUri());
-    await client.connect();
-    console.log("Connected to MongoDB");
-    await setupIndexes(client.db(getDbName()));
+  const uri = getUri();
+  
+  if (process.env.NODE_ENV === "development") {
+    if (!global._mongoClientPromise) {
+      const client = new MongoClient(uri);
+      global._mongoClientPromise = client.connect().then(async (c) => {
+        console.log("Connected to MongoDB (Dev)");
+        await setupIndexes(c.db(getDbName()));
+        return c;
+      });
+    }
+    clientPromise = global._mongoClientPromise;
+  } else {
+    if (!clientPromise) {
+      const client = new MongoClient(uri);
+      clientPromise = client.connect().then(async (c) => {
+        console.log("Connected to MongoDB (Prod)");
+        await setupIndexes(c.db(getDbName()));
+        return c;
+      }).catch(err => {
+        clientPromise = null;
+        throw err;
+      });
+    }
   }
-  return client.db(getDbName());
+
+  const connectedClient = await clientPromise!;
+  return connectedClient.db(getDbName());
 }
 
 export async function getOpportunitiesCollection() {
