@@ -1,5 +1,6 @@
 import type { Category } from "@/lib/opportunities";
 import { DashboardSearch } from "./DashboardSearch";
+import { useState } from "react";
 
 const CATEGORIES: { id: Category | "all"; label: string; color: string; rotate: string }[] = [
   { id: "all", label: "#FOR_YOU", color: "bg-card", rotate: "-rotate-2" },
@@ -61,8 +62,7 @@ export function FilterRail({ category, onCategoryChange, query, onQueryChange }:
 }
 
 export function FilterRailControlled() {
-  const React = require("react");
-  const [cat, setCat] = React.useState<Category | "all">("all");
-  const [q, setQ] = React.useState("");
+  const [cat, setCat] = useState<Category | "all">("all");
+  const [q, setQ] = useState("");
   return <FilterRail category={cat} onCategoryChange={setCat} query={q} onQueryChange={setQ} />;
 }

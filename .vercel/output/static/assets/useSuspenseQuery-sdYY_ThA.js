@@ -1,1 +1,0 @@
-import{L as e,R as t,V as n}from"./index-bHOG6T-y.js";function r(r,i){return e({...r,enabled:!0,suspense:!0,throwOnError:t,placeholderData:void 0},n,i)}export{r as t};

@@ -251,7 +251,7 @@ var NodeResponse = /* @__PURE__ */ (() => {
 	return NodeResponse;
 })();
 //#endregion
-//#region node_modules/h3/dist/h3.mjs
+//#region node_modules/nitro/node_modules/h3/dist/h3.mjs
 function decodePathname(pathname) {
 	return decodeURI(pathname.includes("%25") ? pathname.replace(/%25/g, "%2525") : pathname);
 }
@@ -651,4 +651,4 @@ var H3Core = class {
 	}
 };
 //#endregion
-export { NodeResponse as a, toRequest as i, HTTPError as n, FastURL as o, defineLazyEventHandler as r, NullProtoObj as s, H3Core as t };
+export { NodeResponse as a, toRequest as i, HTTPError as n, defineLazyEventHandler as r, H3Core as t };

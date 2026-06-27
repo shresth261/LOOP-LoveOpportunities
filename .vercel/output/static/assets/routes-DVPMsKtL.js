@@ -1,0 +1,1 @@
+import{B as e}from"./index-HlXVPPjN.js";var t=e(),n=()=>(0,t.jsx)(`div`,{className:`p-10 font-mono`,children:`Not found.`});export{n as notFoundComponent};

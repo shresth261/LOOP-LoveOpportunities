@@ -1,1 +1,0 @@
-import{B as e,M as t}from"./index-bHOG6T-y.js";var n=e(),r=()=>(0,n.jsxs)(`div`,{className:`max-w-md mx-auto py-20 text-center`,children:[(0,n.jsx)(`p`,{className:`font-display text-5xl uppercase`,children:`Gone.`}),(0,n.jsx)(t,{to:`/`,className:`font-mono text-xs uppercase underline`,children:`Back to feed`})]});export{r as notFoundComponent};
