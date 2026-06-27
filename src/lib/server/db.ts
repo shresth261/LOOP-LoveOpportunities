@@ -2,58 +2,38 @@ import { MongoClient } from "mongodb";
 import type { Opportunity } from "../opportunities";
 import type { Profile } from "../local-store";
 
-const getUri = () => process.env.MONGODB_URI || "mongodb://localhost:27017";
-const getDbName = () => process.env.DATABASE_NAME || "leap_lounge";
+const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
+const dbName = process.env.DATABASE_NAME || "leap_lounge";
 
-let clientPromise: Promise<MongoClient> | null = null;
+let client: MongoClient;
+let clientPromise: Promise<MongoClient>;
 
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
+if (process.env.NODE_ENV === "development") {
+  if (!global._mongoClientPromise) {
+    client = new MongoClient(uri);
+    global._mongoClientPromise = client.connect().then((c) => {
+      console.log("Connected to MongoDB (Dev)");
+      setupIndexes(c.db(dbName)).catch(console.error);
+      return c;
+    });
+  }
+  clientPromise = global._mongoClientPromise;
+} else {
+  client = new MongoClient(uri);
+  clientPromise = client.connect().then((c) => {
+    console.log("Connected to MongoDB (Prod)");
+    setupIndexes(c.db(dbName)).catch(console.error);
+    return c;
+  });
+}
+
 export async function getDb() {
-  const uri = getUri();
-  
-  if (process.env.NODE_ENV === "development") {
-    if (!global._mongoClientPromise) {
-      const client = new MongoClient(uri);
-      global._mongoClientPromise = client.connect().then((c) => {
-        console.log("Connected to MongoDB (Dev)");
-        // Do not await setupIndexes on the critical path
-        setupIndexes(c.db(getDbName())).catch(console.error);
-        return c;
-      });
-    }
-    clientPromise = global._mongoClientPromise;
-  } else {
-    if (!clientPromise) {
-      const client = new MongoClient(uri);
-      clientPromise = client.connect().then((c) => {
-        console.log("Connected to MongoDB (Prod)");
-        setupIndexes(c.db(getDbName())).catch(console.error);
-        return c;
-      }).catch(err => {
-        clientPromise = null;
-        throw err;
-      });
-    }
-  }
-
-  let connectedClient = await clientPromise!;
-  
-  // Vercel Serverless environments can forcefully close the TCP connection and the MongoClient topology.
-  // We must detect this and cleanly instantiate a new connection if the topology died.
-  // @ts-ignore
-  if (connectedClient.topology && connectedClient.topology.isClosed()) {
-    console.log("MongoDB Topology was closed by Vercel. Reconnecting...");
-    clientPromise = null;
-    if (process.env.NODE_ENV === "development") {
-      global._mongoClientPromise = undefined;
-    }
-    return getDb();
-  }
-
-  return connectedClient.db(getDbName());
+  const connectedClient = await clientPromise;
+  return connectedClient.db(dbName);
 }
 
 export async function getOpportunitiesCollection() {
