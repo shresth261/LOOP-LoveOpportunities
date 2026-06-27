@@ -1,0 +1,1 @@
+import{B as e}from"./index-bHOG6T-y.js";var t=e(),n=({error:e})=>(0,t.jsxs)(`div`,{className:`p-10 font-mono`,children:[`Failed to load: `,e.message]});export{n as errorComponent};
