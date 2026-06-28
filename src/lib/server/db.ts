@@ -5,6 +5,12 @@ import type { Profile } from "../local-store";
 const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
 const dbName = process.env.DATABASE_NAME || "leap_lounge";
 
+const options = {
+  maxIdleTimeMS: 10000,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+};
+
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
@@ -14,7 +20,7 @@ declare global {
 
 if (process.env.NODE_ENV === "development") {
   if (!global._mongoClientPromise) {
-    client = new MongoClient(uri);
+    client = new MongoClient(uri, options);
     global._mongoClientPromise = client.connect().then((c) => {
       console.log("Connected to MongoDB (Dev)");
       setupIndexes(c.db(dbName)).catch(console.error);
@@ -23,7 +29,7 @@ if (process.env.NODE_ENV === "development") {
   }
   clientPromise = global._mongoClientPromise;
 } else {
-  client = new MongoClient(uri);
+  client = new MongoClient(uri, options);
   clientPromise = client.connect().then((c) => {
     console.log("Connected to MongoDB (Prod)");
     setupIndexes(c.db(dbName)).catch(console.error);
